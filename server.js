@@ -91,8 +91,8 @@ async function isValidSmartLeadApiKey(apiKey, email) {
 
 // Route to handle requests
 app.get("/:param1/:param2", async (req, res) => {
-  const { param1, param2 } = req.params;
-  let clientDomain = req.hostname; // Gets the domain from request
+  const { param1, param2 } = req?.params;
+  let clientDomain = req?.hostname; // Gets the domain from request
 
   let username;
   let email;
@@ -115,7 +115,7 @@ app.get("/:param1/:param2", async (req, res) => {
   if (!client) console.log("Client not found");
 
   // Fetch lead details from SmartLead API
-  const leadData = await fetchLeadData(client.smartLeadApiKey, email);
+  const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
   if (!leadData) console.log("Lead not found");
 
   const fullName = leadData.first_name + " " + leadData.last_name;
