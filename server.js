@@ -9,7 +9,6 @@ app.use(express.json());
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const PORT = process.env.PORT;
-const DOMAIN = process.env.DOMAIN;
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -39,7 +38,6 @@ async function getClientByDomainOrUsername({ domain, username, isDomain }) {
       return null;
     }
   }
-
   return clientData;
 }
 
@@ -48,7 +46,9 @@ async function fetchLeadData(apiKey, email) {
   if (apiKey === "ABCD") {
     // Dummy API key
     return {
-      name: "SHIVAM WIN",
+      first_name: "SHIVAM",
+      last_name: "SHARMA",
+      phone_number: "1234567890",
       email: "sharmashivam@gmail.com",
     };
   }
@@ -89,7 +89,7 @@ async function isValidSmartLeadApiKey(apiKey, email) {
   }
 }
 
-app.get("/", (req, res) => { 
+app.get("/", (req, res) => {
   try {
     res.send("Webhook is running...");
   } catch (error) {
@@ -99,32 +99,34 @@ app.get("/", (req, res) => {
 });
 
 // Route to handle requests
-app.get("/:param1/:param2", async (req, res) => {
+app.get("/:email", async (req, res) => {
   try {
-    console.log("--------- Request received:", req);
-    const { param1, param2 } = req?.params;
-    let clientDomain = req?.hostname; // Gets the domain from request
+    const { email } = req?.params;
+    const clientDomain = req?.hostname; // Gets the domain from request
 
-    let username, email, client, fullName, phone, leadData;
-    if (clientDomain !== DOMAIN) {
-      // Custom domain case: Find client by domain
-      email = param1;
-      client = await getClientByDomainOrUsername({
-        domain: clientDomain,
-        isDomain: true,
-      });
-    } else {
-      // Default webhook case: Find client by username in URL
-      username = param1;
-      email = param2;
-      client = await getClientByDomainOrUsername({ username, isDomain: false });
-    }
+    console.log("Client Domain:", clientDomain);
+    
+    // Custom domain case: Find client by domain
+    const client = await getClientByDomainOrUsername({
+      domain: clientDomain,
+      isDomain: true,
+    });
     if (client) {
       // Fetch lead details from SmartLead API
-      leadData = await fetchLeadData(client?.smartLeadApiKey, email);
+      const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
+
       if (leadData) {
-        fullName = leadData?.first_name + " " + leadData?.last_name;
-        phone = leadData?.phone_number;
+        const fullName = leadData?.first_name + " " + leadData?.last_name || "";
+        const phone = leadData?.phone_number || "";
+        // Build Calendly URL with prefilled details
+        const calendlyUrl = `${client?.calendlyLink}?name=${encodeURIComponent(
+          fullName
+        )}&email=${encodeURIComponent(
+          leadData?.email
+        )}&phone=${encodeURIComponent(phone)}`;
+
+        // Redirect to Calendly
+        return res?.redirect(calendlyUrl);
       } else {
         console.log("Lead not found");
       }
@@ -132,15 +134,50 @@ app.get("/:param1/:param2", async (req, res) => {
       console.log("Client not found");
     }
 
-    // Build Calendly URL with prefilled details
-    const calendlyUrl = `${client?.calendlyLink}?name=${encodeURIComponent(
-      fullName
-    )}&email=${encodeURIComponent(leadData?.email)}&phone=${encodeURIComponent(
-      phone
-    )}`;
+    return res.json({
+      message: "Record not found",
+    });
+  } catch (error) {
+    console.error("Error in request:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
 
-    // Redirect to Calendly
-    res?.redirect(calendlyUrl);
+// Route to handle requests
+app.get("/:username/:email", async (req, res) => {
+  try {
+    const { username, email } = req?.params;
+
+    // Default webhook case: Find client by username in URL
+    const client = await getClientByDomainOrUsername({
+      username,
+      isDomain: false,
+    });
+
+    if (client) {
+      // Fetch lead details from SmartLead API
+      const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
+      if (leadData) {
+        const fullName = leadData?.first_name + " " + leadData?.last_name || "";
+        const phone = leadData?.phone_number || "";
+        // Build Calendly URL with prefilled details
+        const calendlyUrl = `${client?.calendlyLink}?name=${encodeURIComponent(
+          fullName
+        )}&email=${encodeURIComponent(
+          leadData?.email
+        )}&phone=${encodeURIComponent(phone)}`;
+
+        // Redirect to Calendly
+        return res?.redirect(calendlyUrl);
+      } else {
+        console.log("Lead not found");
+      }
+    } else {
+      console.log("Client not found");
+    }
+    return res.json({
+      message: "Record not found",
+    });
   } catch (error) {
     console.error("Error in request:", error);
     res.status(500).json({ error: "Internal server error" });
