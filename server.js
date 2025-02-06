@@ -89,6 +89,15 @@ async function isValidSmartLeadApiKey(apiKey, email) {
   }
 }
 
+app.get("/", (req, res) => { 
+  try {
+    res.send("Webhook is running...");
+  } catch (error) {
+    console.error("Error in request:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Route to handle requests
 app.get("/:param1/:param2", async (req, res) => {
   try {
@@ -113,15 +122,18 @@ app.get("/:param1/:param2", async (req, res) => {
       email = param2;
       client = await getClientByDomainOrUsername({ username, isDomain: false });
     }
-
-    if (!client) console.log("Client not found");
-
-    // Fetch lead details from SmartLead API
-    const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
-    if (!leadData) console.log("Lead not found");
-
-    const fullName = leadData?.first_name + " " + leadData?.last_name;
-    const phone = leadData?.phone_number;
+    if (client) {
+      // Fetch lead details from SmartLead API
+      const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
+      if (leadData) {
+        const fullName = leadData?.first_name + " " + leadData?.last_name;
+        const phone = leadData?.phone_number;
+      } else {
+        console.log("Lead not found");
+      }
+    } else {
+      console.log("Client not found");
+    }
 
     // Build Calendly URL with prefilled details
     const calendlyUrl = `${client?.calendlyLink}?name=${encodeURIComponent(
@@ -143,7 +155,8 @@ app.get("/:param1/:param2", async (req, res) => {
  */
 app.post("/clients", async (req, res) => {
   try {
-    const { username, calendlyLink, email, smartLeadApiKey, domain } = req?.body;
+    const { username, calendlyLink, email, smartLeadApiKey, domain } =
+      req?.body;
 
     if (!smartLeadApiKey || !calendlyLink || !email) {
       return res.status(400).json({
@@ -179,7 +192,8 @@ app.post("/clients", async (req, res) => {
  */
 app.put("/clients", async (req, res) => {
   try {
-    const { username, calendlyLink, email, smartLeadApiKey, domain } = req?.body;
+    const { username, calendlyLink, email, smartLeadApiKey, domain } =
+      req?.body;
 
     if (!smartLeadApiKey || !calendlyLink || !email) {
       return res.status(400).json({
@@ -216,7 +230,6 @@ app.put("/clients", async (req, res) => {
 app.delete("/clients/:email", async (req, res) => {
   try {
     const { email } = req?.params;
-
     const { data, error } = await supabase
       .from("clients")
       .delete()
