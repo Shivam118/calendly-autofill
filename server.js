@@ -105,10 +105,7 @@ app.get("/:param1/:param2", async (req, res) => {
     const { param1, param2 } = req?.params;
     let clientDomain = req?.hostname; // Gets the domain from request
 
-    let username;
-    let email;
-
-    let client;
+    let username, email, client, fullName, phone, leadData;
     if (clientDomain !== DOMAIN) {
       // Custom domain case: Find client by domain
       email = param1;
@@ -124,10 +121,10 @@ app.get("/:param1/:param2", async (req, res) => {
     }
     if (client) {
       // Fetch lead details from SmartLead API
-      const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
+      leadData = await fetchLeadData(client?.smartLeadApiKey, email);
       if (leadData) {
-        const fullName = leadData?.first_name + " " + leadData?.last_name;
-        const phone = leadData?.phone_number;
+        fullName = leadData?.first_name + " " + leadData?.last_name;
+        phone = leadData?.phone_number;
       } else {
         console.log("Lead not found");
       }
@@ -153,7 +150,7 @@ app.get("/:param1/:param2", async (req, res) => {
 /**
  * Create client
  */
-app.post("/clients", async (req, res) => {
+app.post("/client", async (req, res) => {
   try {
     const { username, calendlyLink, email, smartLeadApiKey, domain } =
       req?.body;
@@ -190,7 +187,7 @@ app.post("/clients", async (req, res) => {
 /**
  * Update a client
  */
-app.put("/clients", async (req, res) => {
+app.put("/client", async (req, res) => {
   try {
     const { username, calendlyLink, email, smartLeadApiKey, domain } =
       req?.body;
@@ -227,7 +224,7 @@ app.put("/clients", async (req, res) => {
 /**
  * Delete a client
  */
-app.delete("/clients/:email", async (req, res) => {
+app.delete("/client/:email", async (req, res) => {
   try {
     const { email } = req?.params;
     const { data, error } = await supabase
