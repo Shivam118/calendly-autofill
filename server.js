@@ -56,7 +56,7 @@ async function fetchLeadData(apiKey, email) {
     const response = await axios.get(
       `https://server.smartlead.ai/api/v1/leads/?api_key=${apiKey}&email=${email}`
     );
-    return response.data; // Assuming first match is correct
+    return response?.data; // Assuming first match is correct
   } catch (error) {
     console.error("Error fetching SmartLead data:", error);
     return null;
@@ -69,21 +69,21 @@ async function isValidSmartLeadApiKey(apiKey, email) {
       `https://server.smartlead.ai/api/v1/leads/?api_key=${apiKey}&email=${email}`
     );
     console.log("SmartLead Response:", response.data);
-    return response.status === 200;
+    return response?.status === 200;
   } catch (error) {
-    if (error.response) {
+    if (error?.response) {
       // API responded with an error status (e.g., 401 Unauthorized)
       console.error(
         "SmartLead API Error:",
-        error.response.status,
-        error.response.data
+        error?.response?.status,
+        error?.response?.data
       );
-    } else if (error.request) {
+    } else if (error?.request) {
       // No response was received (network issue, server down, etc.)
-      console.error("No response from SmartLead API:", error.request);
+      console.error("No response from SmartLead API:", error?.request);
     } else {
       // Other errors (e.g., invalid request)
-      console.error("Request Error:", error.message);
+      console.error("Request Error:", error?.message);
     }
     return false;
   }
@@ -120,18 +120,18 @@ app.get("/:param1/:param2", async (req, res) => {
     const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
     if (!leadData) console.log("Lead not found");
 
-    const fullName = leadData.first_name + " " + leadData.last_name;
-    const phone = leadData.phone_number;
+    const fullName = leadData?.first_name + " " + leadData?.last_name;
+    const phone = leadData?.phone_number;
 
     // Build Calendly URL with prefilled details
-    const calendlyUrl = `${client.calendlyLink}?name=${encodeURIComponent(
+    const calendlyUrl = `${client?.calendlyLink}?name=${encodeURIComponent(
       fullName
-    )}&email=${encodeURIComponent(leadData.email)}&phone=${encodeURIComponent(
+    )}&email=${encodeURIComponent(leadData?.email)}&phone=${encodeURIComponent(
       phone
     )}`;
 
     // Redirect to Calendly
-    res.redirect(calendlyUrl);
+    res?.redirect(calendlyUrl);
   } catch (error) {
     console.error("Error in request:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -143,7 +143,7 @@ app.get("/:param1/:param2", async (req, res) => {
  */
 app.post("/clients", async (req, res) => {
   try {
-    const { username, calendlyLink, email, smartLeadApiKey, domain } = req.body;
+    const { username, calendlyLink, email, smartLeadApiKey, domain } = req?.body;
 
     if (!smartLeadApiKey || !calendlyLink || !email) {
       return res.status(400).json({
@@ -179,7 +179,7 @@ app.post("/clients", async (req, res) => {
  */
 app.put("/clients", async (req, res) => {
   try {
-    const { username, calendlyLink, email, smartLeadApiKey, domain } = req.body;
+    const { username, calendlyLink, email, smartLeadApiKey, domain } = req?.body;
 
     if (!smartLeadApiKey || !calendlyLink || !email) {
       return res.status(400).json({
@@ -215,7 +215,7 @@ app.put("/clients", async (req, res) => {
  */
 app.delete("/clients/:email", async (req, res) => {
   try {
-    const { email } = req.params;
+    const { email } = req?.params;
 
     const { data, error } = await supabase
       .from("clients")
