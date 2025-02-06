@@ -91,125 +91,146 @@ async function isValidSmartLeadApiKey(apiKey, email) {
 
 // Route to handle requests
 app.get("/:param1/:param2", async (req, res) => {
-  const { param1, param2 } = req?.params;
-  let clientDomain = req?.hostname; // Gets the domain from request
+  try {
+    console.log("--------- Request received:", req);
+    const { param1, param2 } = req?.params;
+    let clientDomain = req?.hostname; // Gets the domain from request
 
-  let username;
-  let email;
+    let username;
+    let email;
 
-  let client;
-  if (clientDomain !== DOMAIN) {
-    // Custom domain case: Find client by domain
-    email = param1;
-    client = await getClientByDomainOrUsername({
-      domain: clientDomain,
-      isDomain: true,
-    });
-  } else {
-    // Default webhook case: Find client by username in URL
-    username = param1;
-    email = param2;
-    client = await getClientByDomainOrUsername({ username, isDomain: false });
+    let client;
+    if (clientDomain !== DOMAIN) {
+      // Custom domain case: Find client by domain
+      email = param1;
+      client = await getClientByDomainOrUsername({
+        domain: clientDomain,
+        isDomain: true,
+      });
+    } else {
+      // Default webhook case: Find client by username in URL
+      username = param1;
+      email = param2;
+      client = await getClientByDomainOrUsername({ username, isDomain: false });
+    }
+
+    if (!client) console.log("Client not found");
+
+    // Fetch lead details from SmartLead API
+    const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
+    if (!leadData) console.log("Lead not found");
+
+    const fullName = leadData.first_name + " " + leadData.last_name;
+    const phone = leadData.phone_number;
+
+    // Build Calendly URL with prefilled details
+    const calendlyUrl = `${client.calendlyLink}?name=${encodeURIComponent(
+      fullName
+    )}&email=${encodeURIComponent(leadData.email)}&phone=${encodeURIComponent(
+      phone
+    )}`;
+
+    // Redirect to Calendly
+    res.redirect(calendlyUrl);
+  } catch (error) {
+    console.error("Error in request:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  if (!client) console.log("Client not found");
-
-  // Fetch lead details from SmartLead API
-  const leadData = await fetchLeadData(client?.smartLeadApiKey, email);
-  if (!leadData) console.log("Lead not found");
-
-  const fullName = leadData.first_name + " " + leadData.last_name;
-  const phone = leadData.phone_number;
-
-  // Build Calendly URL with prefilled details
-  const calendlyUrl = `${client.calendlyLink}?name=${encodeURIComponent(
-    fullName
-  )}&email=${encodeURIComponent(leadData.email)}&phone=${encodeURIComponent(
-    phone
-  )}`;
-
-  // Redirect to Calendly
-  res.redirect(calendlyUrl);
 });
 
 /**
  * Create client
  */
 app.post("/clients", async (req, res) => {
-  const { username, calendlyLink, email, smartLeadApiKey, domain } = req.body;
+  try {
+    const { username, calendlyLink, email, smartLeadApiKey, domain } = req.body;
 
-  if (!smartLeadApiKey || !calendlyLink || !email) {
-    return res.status(400).json({
-      error: "Missing required fields [Smart Lead API/ Calendly Link/ Email]",
-    });
+    if (!smartLeadApiKey || !calendlyLink || !email) {
+      return res.status(400).json({
+        error: "Missing required fields [Smart Lead API/ Calendly Link/ Email]",
+      });
+    }
+
+    const isValidKey = await isValidSmartLeadApiKey(smartLeadApiKey, email);
+
+    if (isValidKey === false) {
+      return res.status(400).json({
+        error: "Invalid Smart Lead API Key",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("clients")
+      .insert([{ username, calendlyLink, email, smartLeadApiKey, domain }]);
+
+    if (error) {
+      return res.status(500).json({ error: "Error creating client" });
+    }
+
+    res.status(201).json({ message: "Client created successfully", data });
+  } catch (error) {
+    console.error("Error in request:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  const isValidKey = await isValidSmartLeadApiKey(smartLeadApiKey, email);
-
-  if (isValidKey === false) {
-    return res.status(400).json({
-      error: "Invalid Smart Lead API Key",
-    });
-  }
-
-  const { data, error } = await supabase
-    .from("clients")
-    .insert([{ username, calendlyLink, email, smartLeadApiKey, domain }]);
-
-  if (error) {
-    return res.status(500).json({ error: "Error creating client" });
-  }
-
-  res.status(201).json({ message: "Client created successfully", data });
 });
 
 /**
  * Update a client
  */
 app.put("/clients", async (req, res) => {
-  const { username, calendlyLink, email, smartLeadApiKey, domain } = req.body;
+  try {
+    const { username, calendlyLink, email, smartLeadApiKey, domain } = req.body;
 
-  if (!smartLeadApiKey || !calendlyLink || !email) {
-    return res.status(400).json({
-      error: "Missing required fields [Smart Lead API/ Calendly Link/ Email]",
-    });
+    if (!smartLeadApiKey || !calendlyLink || !email) {
+      return res.status(400).json({
+        error: "Missing required fields [Smart Lead API/ Calendly Link/ Email]",
+      });
+    }
+    const isValidKey = await isValidSmartLeadApiKey(smartLeadApiKey, email);
+
+    if (isValidKey === false) {
+      return res.status(400).json({
+        error: "Invalid Smart Lead API Key",
+      });
+    }
+
+    const { data, error } = await supabase
+      .from("clients")
+      .update({ username, calendlyLink, smartLeadApiKey, domain })
+      .eq("email", email);
+
+    if (error) {
+      return res.status(500).json({ error: "Error updating client" });
+    }
+
+    res.json({ message: "Client updated successfully", data });
+  } catch (error) {
+    console.error("Error in request:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-  const isValidKey = await isValidSmartLeadApiKey(smartLeadApiKey, email);
-
-  if (isValidKey === false) {
-    return res.status(400).json({
-      error: "Invalid Smart Lead API Key",
-    });
-  }
-
-  const { data, error } = await supabase
-    .from("clients")
-    .update({ username, calendlyLink, smartLeadApiKey, domain })
-    .eq("email", email);
-
-  if (error) {
-    return res.status(500).json({ error: "Error updating client" });
-  }
-
-  res.json({ message: "Client updated successfully", data });
 });
 
 /**
  * Delete a client
  */
 app.delete("/clients/:email", async (req, res) => {
-  const { email } = req.params;
+  try {
+    const { email } = req.params;
 
-  const { data, error } = await supabase
-    .from("clients")
-    .delete()
-    .eq("email", email);
+    const { data, error } = await supabase
+      .from("clients")
+      .delete()
+      .eq("email", email);
 
-  if (error) {
-    return res.status(500).json({ error: "Error deleting client" });
+    if (error) {
+      return res.status(500).json({ error: "Error deleting client" });
+    }
+
+    res.json({ message: "Client deleted successfully" });
+  } catch (error) {
+    console.error("Error in request:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  res.json({ message: "Client deleted successfully" });
 });
 
 // Start server
